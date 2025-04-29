@@ -1,0 +1,369 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" href="./assets/vvceicon.icon.bmp" type="image">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CGPA & SGPA Calculator</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f4f9;
+      margin: 0;
+      padding: 10px;
+      color: #333;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    body.dark {
+      background: #121212;
+      color: #e0e0e0;
+    }
+
+    h1, h2 {
+      text-align: center;
+      color: #2c3e50;
+    }
+
+    body.dark h1, body.dark h2 {
+      color: #f0f0f0;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    }
+
+    body.dark .container {
+      background: #1e1e1e;
+    }
+
+    .user-details, .dark-toggle {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .user-details input[type="text"] {
+      width: 90%;
+      max-width: 300px;
+      padding: 8px;
+      margin: 5px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      overflow-x: auto;
+    }
+
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
+
+    th {
+      background-color: #ecf0f1;
+    }
+
+    body.dark th {
+      background-color: #333;
+    }
+
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      padding: 5px;
+      box-sizing: border-box;
+    }
+
+    .btn {
+      display: block;
+      margin: 10px auto;
+      padding: 10px 20px;
+      background-color: #3498db;
+      color: #fff;
+      font-weight: bold;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .btn:hover {
+      background-color: #2980b9;
+    }
+
+    .result {
+      text-align: center;
+      font-size: 18px;
+      margin-top: 20px;
+      white-space: pre-wrap;
+    }
+
+    .suggestion {
+      color: #e74c3c;
+      font-size: 14px;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 15px;
+      }
+
+      table, thead, tbody, th, td, tr {
+        font-size: 13px;
+      }
+
+      .btn {
+        width: 90%;
+        font-size: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Registration Section -->
+  <div class="container" id="registration-section">
+    <h1>Register</h1>
+    <div class="user-details">
+      <input type="text" id="student-name" placeholder="Enter your name" />
+      <input type="text" id="usn" placeholder="Enter your USN" />
+      <button class="btn" onclick="registerUser()">Register</button>
+    </div>
+  </div>
+
+  <!-- Calculator Section -->
+  <div class="container" id="calculator-section" style="display: none;">
+    <h1>CGPA & SGPA Calculator</h1>
+    <div class="dark-toggle">
+      <label>
+        <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()"> Enable Dark Mode
+      </label>
+    </div>
+
+    <div id="semester-sections"></div>
+
+    <button class="btn" onclick="addSemester()">Add Semester</button>
+    <button class="btn" onclick="calculateCGPA()">Calculate CGPA</button>
+
+    <div class="result" id="result"></div>
+  </div>
+
+  <script>
+    let semesterCount = 0;
+    const subjectCounters = {};
+    const LOCAL_STORAGE_KEY = 'cgpa_sgpa_data';
+
+    function getGradePoint(marks) {
+      if (marks >= 90) return 10;
+      if (marks >= 80) return 9;
+      if (marks >= 70) return 8;
+      if (marks >= 60) return 7;
+      if (marks >= 50) return 6;
+      if (marks >= 45) return 5;
+      if (marks >= 40) return 4;
+      return 0;
+    }
+
+    function getLetterGrade(marks) {
+      if (marks >= 90) return 'O';
+      if (marks >= 80) return 'A+';
+      if (marks >= 70) return 'A';
+      if (marks >= 60) return 'B+';
+      if (marks >= 50) return 'B';
+      if (marks >= 45) return 'C';
+      if (marks >= 40) return 'P';
+      return 'F';
+    }
+
+    function getSuggestion(marks) {
+      if (marks < 40) return 'Needs significant improvement.';
+      if (marks < 60) return 'Try practicing past papers.';
+      if (marks < 80) return 'Good, aim higher.';
+      return 'Excellent!';
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark');
+      saveData();
+    }
+
+    function registerUser() {
+      const name = document.getElementById('student-name').value.trim();
+      const usn = document.getElementById('usn').value.trim();
+      if (!name || !usn) {
+        alert("Please enter both Name and USN.");
+        return;
+      }
+      saveData();  // Save user info
+      document.getElementById('registration-section').style.display = 'none';
+      document.getElementById('calculator-section').style.display = 'block';
+    }
+
+    function addSemester(data = null) {
+      semesterCount++;
+      subjectCounters[semesterCount] = 1;
+      const semesterDiv = document.createElement('div');
+      semesterDiv.id = `semester-${semesterCount}`;
+      semesterDiv.innerHTML = `
+        <h2>Semester ${semesterCount}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Subject No.</th>
+              <th>CEE Marks</th>
+              <th>SEE Marks</th>
+              <th>Credits</th>
+              <th>Letter Grade</th>
+              <th>Suggestions</th>
+            </tr>
+          </thead>
+          <tbody id="subject-table-${semesterCount}"></tbody>
+        </table>
+        <button class="btn" onclick="addSubject(${semesterCount})">Add Subject</button>
+        <button class="btn" onclick="calculateSGPA(${semesterCount})">Calculate SGPA</button>
+        <div class="result" id="sgpa-result-${semesterCount}"></div>
+        <hr />
+      `;
+      document.getElementById('semester-sections').appendChild(semesterDiv);
+
+      if (data && data.subjects) {
+        data.subjects.forEach(sub => addSubject(semesterCount, sub));
+      } else {
+        addSubject(semesterCount);
+      }
+    }
+
+    function addSubject(semId, data = {}) {
+      const row = document.createElement('tr');
+      const subjectNo = subjectCounters[semId]++;
+      row.innerHTML = `
+        <td>${subjectNo}</td>
+        <td><input type="number" min="0" max="50" value="${data.cee || ''}" oninput="updateGrade(this)" /></td>
+        <td><input type="number" min="0" max="50" value="${data.see || ''}" oninput="updateGrade(this)" /></td>
+        <td><input type="number" min="1" max="10" value="${data.credits || ''}" /></td>
+        <td class="grade-cell">${data.grade || ''}</td>
+        <td class="suggestion-cell suggestion">${data.suggestion || ''}</td>
+      `;
+      document.getElementById(`subject-table-${semId}`).appendChild(row);
+    }
+
+    function updateGrade(inputElem) {
+      const row = inputElem.closest('tr');
+      const cee = parseFloat(row.cells[1].querySelector('input').value);
+      const see = parseFloat(row.cells[2].querySelector('input').value);
+      const total = (!isNaN(cee) ? cee : 0) + (!isNaN(see) ? see : 0);
+      const gradeCell = row.querySelector('.grade-cell');
+      const suggestionCell = row.querySelector('.suggestion-cell');
+      gradeCell.textContent = isNaN(total) ? '' : getLetterGrade(total);
+      suggestionCell.textContent = isNaN(total) ? '' : getSuggestion(total);
+      saveData();
+    }
+
+    function calculateSGPA(semId) {
+      const rows = document.querySelectorAll(`#semester-${semId} tbody tr`);
+      let totalPoints = 0;
+      let totalCredits = 0;
+      rows.forEach(row => {
+        const cee = parseFloat(row.cells[1].querySelector('input').value);
+        const see = parseFloat(row.cells[2].querySelector('input').value);
+        const credits = parseFloat(row.cells[3].querySelector('input').value);
+        const total = (!isNaN(cee) ? cee : 0) + (!isNaN(see) ? see : 0);
+        if (!isNaN(total) && !isNaN(credits)) {
+          const gradePoint = getGradePoint(total);
+          totalPoints += gradePoint * credits;
+          totalCredits += credits;
+        }
+      });
+      const sgpa = totalCredits ? (totalPoints / totalCredits).toFixed(2) : 'N/A';
+      document.getElementById(`sgpa-result-${semId}`).innerText = `SGPA: ${sgpa}`;
+      saveData();
+      return totalCredits ? parseFloat(sgpa) : null;
+    }
+
+    function calculateCGPA() {
+      let totalPoints = 0;
+      let totalCredits = 0;
+      for (let i = 1; i <= semesterCount; i++) {
+        const rows = document.querySelectorAll(`#semester-${i} tbody tr`);
+        rows.forEach(row => {
+          const cee = parseFloat(row.cells[1].querySelector('input').value);
+          const see = parseFloat(row.cells[2].querySelector('input').value);
+          const credits = parseFloat(row.cells[3].querySelector('input').value);
+          const total = (!isNaN(cee) ? cee : 0) + (!isNaN(see) ? see : 0);
+          if (!isNaN(total) && !isNaN(credits)) {
+            const gradePoint = getGradePoint(total);
+            totalPoints += gradePoint * credits;
+            totalCredits += credits;
+          }
+        });
+      }
+      const cgpa = totalCredits ? (totalPoints / totalCredits).toFixed(2) : 'N/A';
+      const name = document.getElementById('student-name').value;
+      const usn = document.getElementById('usn').value;
+      document.getElementById('result').innerText =
+        (name ? `Name: ${name}\n` : '') + (usn ? `USN: ${usn}\n` : '') + `Total CGPA: ${cgpa}`;
+      saveData();
+    }
+
+    function saveData() {
+      const semesters = [];
+      for (let i = 1; i <= semesterCount; i++) {
+        const rows = document.querySelectorAll(`#semester-${i} tbody tr`);
+        const subjects = [];
+        rows.forEach(row => {
+          subjects.push({
+            cee: row.cells[1].querySelector('input').value,
+            see: row.cells[2].querySelector('input').value,
+            credits: row.cells[3].querySelector('input').value,
+            grade: row.querySelector('.grade-cell').textContent,
+            suggestion: row.querySelector('.suggestion-cell').textContent,
+          });
+        });
+        semesters.push({ subjects });
+      }
+      const data = {
+        name: document.getElementById('student-name').value,
+        usn: document.getElementById('usn').value,
+        semesters,
+        darkMode: document.getElementById('darkModeToggle').checked
+      };
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function loadData() {
+      const data = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY));
+      if (!data) return;
+
+      document.getElementById('student-name').value = data.name || '';
+      document.getElementById('usn').value = data.usn || '';
+
+      if (data.name && data.usn) {
+        document.getElementById('registration-section').style.display = 'none';
+        document.getElementById('calculator-section').style.display = 'block';
+      }
+
+      if (data.darkMode) {
+        document.body.classList.add('dark');
+        document.getElementById('darkModeToggle').checked = true;
+      }
+
+      if (data.semesters && Array.isArray(data.semesters)) {
+        data.semesters.forEach(sem => addSemester(sem));
+      }
+    }
+
+    window.onload = loadData;
+  </script>
+</body>
+</html>
